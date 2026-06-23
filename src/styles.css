@@ -23,7 +23,7 @@ button {
 
 .app-shell {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 420px;
+  grid-template-columns: minmax(0, 1fr) 460px;
   min-height: 100vh;
   background: #f4f6f1;
 }
@@ -152,6 +152,21 @@ h2 {
   stroke: #5f8ca0;
 }
 
+.region-status-want {
+  fill: #f4e7a1;
+  stroke: #a98820;
+}
+
+.region-status-visited {
+  fill: #9ed8df;
+  stroke: #267785;
+}
+
+.region-status-revisit {
+  fill: #b8dfb8;
+  stroke: #3f7f48;
+}
+
 .region-selected {
   stroke: #111111;
   stroke-width: 2.2;
@@ -203,6 +218,34 @@ h2 {
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.stats-grid div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid rgba(39, 62, 51, 0.12);
+  border-radius: 8px;
+  background: #f8faf7;
+}
+
+.stats-grid strong {
+  font-size: 20px;
+  line-height: 24px;
+}
+
+.stats-grid span {
+  color: #66766f;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 15px;
 }
 
 .ghost-button,
@@ -287,6 +330,53 @@ h2 {
   font-weight: 800;
 }
 
+.status-segmented {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.status-option {
+  display: grid;
+  gap: 3px;
+  min-height: 64px;
+  border: 1px solid rgba(39, 62, 51, 0.14);
+  border-radius: 8px;
+  padding: 9px;
+  color: #273e33;
+  background: #ffffff;
+  text-align: left;
+  cursor: pointer;
+}
+
+.status-option strong {
+  font-size: 13px;
+  line-height: 17px;
+}
+
+.status-option span {
+  color: #66766f;
+  font-size: 11px;
+  line-height: 15px;
+}
+
+.status-option-active {
+  border-color: #0f766e;
+  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.13);
+}
+
+.status-option-want.status-option-active {
+  background: #fff7cc;
+}
+
+.status-option-visited.status-option-active {
+  background: #edf9fb;
+}
+
+.status-option-revisit.status-option-active {
+  background: #eef9ee;
+}
+
 .field-label {
   display: grid;
   gap: 7px;
@@ -323,6 +413,31 @@ h2 {
   min-height: 118px;
   line-height: 21px;
   resize: vertical;
+}
+
+.list-toolbar,
+.record-list-section {
+  display: grid;
+  gap: 12px;
+}
+
+.toolbar-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.list-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.list-title-row span {
+  color: #66766f;
+  font-size: 12px;
+  font-weight: 800;
 }
 
 .record-actions {
@@ -371,6 +486,38 @@ h2 {
   font-size: 12px;
   line-height: 18px;
   white-space: normal;
+}
+
+.record-card-meta {
+  align-items: flex-start;
+}
+
+.status-badge {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding: 4px 8px;
+  color: #345448;
+  background: #e6eee9;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 900;
+  line-height: 14px;
+  white-space: nowrap;
+}
+
+.status-badge-want {
+  color: #725b11;
+  background: #fff2a8;
+}
+
+.status-badge-visited {
+  color: #145866;
+  background: #d7f1f5;
+}
+
+.status-badge-revisit {
+  color: #275f2f;
+  background: #ddf3dd;
 }
 
 .empty-state {
@@ -456,13 +603,23 @@ h2 {
   .panel-header,
   .selected-card,
   .marker-card span,
-  .record-actions {
+  .record-actions,
+  .stats-grid,
+  .status-segmented,
+  .toolbar-grid {
     align-items: flex-start;
     flex-direction: column;
   }
 
   .record-actions {
     display: flex;
+  }
+
+  .stats-grid,
+  .status-segmented,
+  .toolbar-grid {
+    display: grid;
+    grid-template-columns: 1fr;
   }
 
   .date-range-fields {

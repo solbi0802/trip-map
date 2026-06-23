@@ -32,9 +32,14 @@ type RegionGroup = {
   regionIds: string[];
 };
 
+type VisitStatus = "want" | "visited" | "revisit";
+type RegionFilter = "all" | "colored" | "recorded" | VisitStatus;
+type RegionSort = "updated" | "period" | "name";
+
 type RegionRecord = {
   regionId: string;
   title: string;
+  status: VisitStatus;
   startedAt: string;
   endedAt: string;
   memo: string;
@@ -44,6 +49,31 @@ type RegionRecord = {
 const STORAGE_KEY = "trip-map.visited-region-groups.v1";
 const RECORD_STORAGE_KEY = "trip-map.region-records.v1";
 const MAP_VIEW_BOX = "45 115 720 760";
+
+const VISIT_STATUS_OPTIONS: Array<{
+  value: VisitStatus;
+  label: string;
+  description: string;
+}> = [
+  { value: "want", label: "가고 싶음", description: "아직 여행 전" },
+  { value: "visited", label: "방문 완료", description: "다녀온 곳" },
+  { value: "revisit", label: "또 가고 싶음", description: "재방문 후보" },
+];
+
+const FILTER_OPTIONS: Array<{ value: RegionFilter; label: string }> = [
+  { value: "all", label: "전체" },
+  { value: "colored", label: "색칠됨" },
+  { value: "recorded", label: "기록 있음" },
+  { value: "want", label: "가고 싶음" },
+  { value: "visited", label: "방문 완료" },
+  { value: "revisit", label: "또 가고 싶음" },
+];
+
+const SORT_OPTIONS: Array<{ value: RegionSort; label: string }> = [
+  { value: "updated", label: "최근 수정순" },
+  { value: "period", label: "여행일순" },
+  { value: "name", label: "지역명순" },
+];
 
 const geoJson = koreaMunicipalities as FeatureCollection<
   Geometry,
@@ -216,6 +246,10 @@ function createRegionGroups() {
 
 const REGION_GROUPS = createRegionGroups();
 
+function isVisitStatus(value: unknown): value is VisitStatus {
+  return value === "want" || value === "visited" || value === "revisit";
+}
+
 function loadVisitedRegions() {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
@@ -261,10 +295,12 @@ function normalizeRegionRecord(
         ? record.visitedAt
         : "";
   const endedAt = typeof record.endedAt === "string" ? record.endedAt : "";
+  const status = isVisitStatus(record.status) ? record.status : "visited";
 
   return {
     regionId,
     title,
+    status,
     startedAt,
     endedAt,
     memo,
@@ -310,6 +346,9 @@ export default function App() {
     Record<string, RegionRecord>
   >(() => loadRegionRecords());
   const [selectedRegionId, setSelectedRegionId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [regionFilter, setRegionFilter] = useState<RegionFilter>("all");
+  const [regionSort, setRegionSort] = useState<RegionSort>("updated");
 
   const visitedRegionSet = useMemo(
     () => new Set(visitedRegionIds),
@@ -327,10 +366,6 @@ export default function App() {
   const selectedRecord = selectedRegion
     ? (regionRecords[selectedRegion.id] ?? null)
     : null;
-  const coloredRegions = useMemo(
-    () => REGION_GROUPS.filter((region) => coloredRegionSet.has(region.id)),
-    [coloredRegionSet],
-  );
   const recordedRegions = useMemo(
     () =>
       REGION_GROUPS.filter((region) => regionRecords[region.id]).sort(
@@ -341,6 +376,79 @@ export default function App() {
       ),
     [regionRecords],
   );
+  const regionStats = useMemo(() => {
+    const stats = {
+      colored: coloredRegionSet.size,
+      recorded: Object.keys(regionRecords).length,
+      want: 0,
+      visited: 0,
+      revisit: 0,
+    };
+
+    Object.values(regionRecords).forEach((record) => {
+      stats[record.status] += 1;
+    });
+
+    return stats;
+  }, [coloredRegionSet.size, regionRecords]);
+  const visibleRegions = useMemo(() => {
+    const normalizedSearchQuery = searchQuery.trim().toLocaleLowerCase();
+
+    return REGION_GROUPS.filter((region) => {
+      const record = regionRecords[region.id];
+      const isColored = coloredRegionSet.has(region.id);
+
+      if (regionFilter === "colored" && !isColored) return false;
+      if (regionFilter === "recorded" && !record) return false;
+      if (isVisitStatus(regionFilter) && record?.status !== regionFilter)
+        return false;
+      if (!isColored && regionFilter !== "all") return false;
+
+      if (!normalizedSearchQuery) {
+        return regionFilter === "all" ? isColored || Boolean(record) : true;
+      }
+
+      const searchableText = [
+        region.name,
+        region.englishName,
+        record?.title,
+        record?.memo,
+        getTravelPeriodText(record, ""),
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLocaleLowerCase();
+
+      return searchableText.includes(normalizedSearchQuery);
+    }).sort((firstRegion, secondRegion) => {
+      const firstRecord = regionRecords[firstRegion.id];
+      const secondRecord = regionRecords[secondRegion.id];
+
+      if (regionSort === "name") {
+        return firstRegion.name.localeCompare(secondRegion.name, "ko");
+      }
+
+      if (regionSort === "period") {
+        const firstPeriod = firstRecord?.startedAt || firstRecord?.endedAt || "";
+        const secondPeriod =
+          secondRecord?.startedAt || secondRecord?.endedAt || "";
+
+        if (firstPeriod || secondPeriod) {
+          return secondPeriod.localeCompare(firstPeriod);
+        }
+      }
+
+      return (secondRecord?.updatedAt ?? "").localeCompare(
+        firstRecord?.updatedAt ?? "",
+      );
+    });
+  }, [
+    coloredRegionSet,
+    regionFilter,
+    regionRecords,
+    regionSort,
+    searchQuery,
+  ]);
 
   useEffect(() => {
     saveVisitedRegions(visitedRegionIds);
@@ -389,6 +497,7 @@ export default function App() {
       const currentRecord = currentRecords[region.id] ?? {
         regionId: region.id,
         title: "",
+        status: "visited",
         startedAt: "",
         endedAt: "",
         memo: "",
@@ -425,6 +534,18 @@ export default function App() {
     return fallbackText;
   }
 
+  function getStatusLabel(status: VisitStatus | undefined) {
+    return (
+      VISIT_STATUS_OPTIONS.find((option) => option.value === status)?.label ??
+      "색칠됨"
+    );
+  }
+
+  function getRegionStatusClass(regionId: string) {
+    const status = regionRecords[regionId]?.status;
+    return status ? `region-status-${status}` : "";
+  }
+
   return (
     <main className="app-shell">
       <section className="map-pane">
@@ -433,7 +554,7 @@ export default function App() {
             <p className="eyebrow">Trip Map MVP</p>
             <h1>국내여행 지도</h1>
           </div>
-          <span className="marker-count">{coloredRegionSet.size}곳 색칠</span>
+          <span className="marker-count">{regionStats.colored}곳 색칠</span>
         </div>
 
         <div className="map-canvas region-map-canvas">
@@ -453,7 +574,11 @@ export default function App() {
                     aria-label={region.fullName}
                     className={`region-shape ${isVisitedGroup ? "region-visited" : ""} ${
                       isSelected ? "region-selected" : ""
-                    } ${EMPHASIZED_GROUP_IDS.has(region.groupId) ? "region-emphasized" : ""}`}
+                    } ${getRegionStatusClass(region.groupId)} ${
+                      EMPHASIZED_GROUP_IDS.has(region.groupId)
+                        ? "region-emphasized"
+                        : ""
+                    }`}
                     d={region.path}
                     key={region.id}
                     onClick={() => toggleShape(region)}
@@ -521,12 +646,56 @@ export default function App() {
           </button>
         </div>
 
+        <div className="stats-grid" aria-label="여행 기록 요약">
+          <div>
+            <strong>{regionStats.recorded}</strong>
+            <span>기록</span>
+          </div>
+          <div>
+            <strong>{regionStats.visited}</strong>
+            <span>방문 완료</span>
+          </div>
+          <div>
+            <strong>{regionStats.want}</strong>
+            <span>가고 싶음</span>
+          </div>
+          <div>
+            <strong>{regionStats.revisit}</strong>
+            <span>또 가고 싶음</span>
+          </div>
+        </div>
+
         {selectedRegion ? (
           <div className="record-editor">
             <div>
               <p className="selected-label">선택한 지역</p>
               <strong>{selectedRegion.name}</strong>
               <span>{selectedRegion.englishName}</span>
+            </div>
+
+            <div className="field-label">
+              방문 상태
+              <div className="status-segmented">
+                {VISIT_STATUS_OPTIONS.map((option) => (
+                  <button
+                    className={`status-option status-option-${option.value} ${
+                      (selectedRecord?.status ?? "visited") === option.value
+                        ? "status-option-active"
+                        : ""
+                    }`}
+                    key={option.value}
+                    onClick={() =>
+                      updateRegionRecord(selectedRegion, {
+                        status: option.value,
+                      })
+                    }
+                    type="button"
+                  >
+                    <strong>{option.label}</strong>
+                    <span>{option.description}</span>
+                  </button>
+                ))}
+              </div>
             </div>
 
             <label className="field-label">
@@ -618,16 +787,71 @@ export default function App() {
           </div>
         )}
 
-        <div className="marker-list">
-          {coloredRegions.length === 0 ? (
+        <section className="record-list-section" aria-label="지역 기록 목록">
+          <div className="list-toolbar">
+            <label className="field-label">
+              검색
+              <input
+                className="text-field"
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="지역명, 제목, 메모 검색"
+                type="search"
+                value={searchQuery}
+              />
+            </label>
+
+            <div className="toolbar-grid">
+              <label className="field-label">
+                필터
+                <select
+                  className="text-field"
+                  onChange={(event) =>
+                    setRegionFilter(event.target.value as RegionFilter)
+                  }
+                  value={regionFilter}
+                >
+                  {FILTER_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="field-label">
+                정렬
+                <select
+                  className="text-field"
+                  onChange={(event) =>
+                    setRegionSort(event.target.value as RegionSort)
+                  }
+                  value={regionSort}
+                >
+                  {SORT_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          </div>
+
+          <div className="list-title-row">
+            <p className="selected-label">기록 목록</p>
+            <span>{visibleRegions.length}곳</span>
+          </div>
+
+          <div className="marker-list">
+          {visibleRegions.length === 0 ? (
             <div className="empty-state">
-              <strong>아직 색칠한 지역이 없어요.</strong>
+              <strong>조건에 맞는 지역이 없어요.</strong>
               <p>
-                지도에서 여행한 지역이나 기록하고 싶은 지역명을 클릭해보세요.
+                지도에서 지역을 선택해 기록을 남기거나 검색 조건을 바꿔보세요.
               </p>
             </div>
           ) : (
-            coloredRegions.map((region) => {
+            visibleRegions.map((region) => {
               const record = regionRecords[region.id];
 
               return (
@@ -642,12 +866,20 @@ export default function App() {
                       {getTravelPeriodText(record, region.englishName)}
                     </small>
                   </span>
-                  <code>{record?.title || record?.memo || "색칠됨"}</code>
+                  <span className="record-card-meta">
+                    <em
+                      className={`status-badge status-badge-${record?.status ?? "plain"}`}
+                    >
+                      {getStatusLabel(record?.status)}
+                    </em>
+                    <code>{record?.title || record?.memo || "색칠됨"}</code>
+                  </span>
                 </button>
               );
             })
           )}
-        </div>
+          </div>
+        </section>
 
         {recordedRegions.length > 0 && (
           <div className="record-summary">
