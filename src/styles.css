@@ -23,7 +23,7 @@ button {
 
 .app-shell {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 360px;
+  grid-template-columns: minmax(0, 1fr) 420px;
   min-height: 100vh;
   background: #f4f6f1;
 }
@@ -231,7 +231,13 @@ h2 {
   background: #be123c;
 }
 
+.danger-button:disabled {
+  background: #d8a4af;
+  cursor: not-allowed;
+}
+
 .selected-card,
+.record-editor,
 .empty-state,
 .marker-card {
   border: 1px solid rgba(39, 62, 51, 0.12);
@@ -258,11 +264,71 @@ h2 {
   font-size: 13px;
 }
 
+.record-editor {
+  display: grid;
+  gap: 14px;
+  padding: 14px;
+}
+
+.record-editor > div:first-child {
+  display: grid;
+  gap: 4px;
+}
+
+.record-editor span {
+  color: #63756d;
+  font-size: 13px;
+}
+
 .selected-label {
   margin: 0;
   color: #0f766e;
   font-size: 12px;
   font-weight: 800;
+}
+
+.field-label {
+  display: grid;
+  gap: 7px;
+  color: #40564b;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.date-range-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.text-field {
+  width: 100%;
+  min-height: 40px;
+  border: 1px solid rgba(39, 62, 51, 0.18);
+  border-radius: 8px;
+  padding: 9px 11px;
+  color: #17201b;
+  background: #ffffff;
+  font: inherit;
+  font-size: 14px;
+  outline: none;
+}
+
+.text-field:focus {
+  border-color: #0f766e;
+  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.13);
+}
+
+.memo-field {
+  min-height: 118px;
+  line-height: 21px;
+  resize: vertical;
+}
+
+.record-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
 }
 
 .marker-list {
@@ -303,6 +369,7 @@ h2 {
 .marker-card code {
   color: #53645d;
   font-size: 12px;
+  line-height: 18px;
   white-space: normal;
 }
 
@@ -316,6 +383,30 @@ h2 {
   margin: 0;
   color: #66766f;
   line-height: 22px;
+}
+
+.record-summary {
+  display: grid;
+  gap: 10px;
+  padding-top: 4px;
+}
+
+.record-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.record-chip {
+  min-height: 32px;
+  border: 1px solid rgba(15, 118, 110, 0.22);
+  border-radius: 999px;
+  padding: 0 10px;
+  color: #0f5f59;
+  background: #edf7f3;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
 }
 
 @media (max-width: 860px) {
@@ -364,8 +455,17 @@ h2 {
 
   .panel-header,
   .selected-card,
-  .marker-card span {
+  .marker-card span,
+  .record-actions {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .record-actions {
+    display: flex;
+  }
+
+  .date-range-fields {
+    grid-template-columns: 1fr;
   }
 }
