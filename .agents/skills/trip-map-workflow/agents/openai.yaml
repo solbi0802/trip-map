@@ -1,0 +1,4 @@
+interface:
+  display_name: "Trip Map Workflow"
+  short_description: "Trip Map 개발과 검증 루틴"
+  default_prompt: "Trip Map 프로젝트 규칙과 검증 루틴을 따라 작업해줘."
