@@ -48,3 +48,10 @@ pnpm preview
 - Use a white background and a deterministic dated filename.
 - Keep exported map colors consistent with visit status colors.
 - Keep the status legend inside the SVG so the on-screen map and exported PNG include the same explanation.
+
+## Map viewport
+
+- Support map zoom from 75% to 200% in 25% steps on desktop and mobile.
+- Keep zoom controls outside the scrollable map content so they remain reachable.
+- On mobile, keep the map header and hint in normal document flow so they never cover the map.
+- Allow internal map scrolling only when the zoomed stage exceeds its viewport.

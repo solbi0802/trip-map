@@ -49,6 +49,9 @@ type RegionRecord = {
 const STORAGE_KEY = "trip-map.visited-region-groups.v1";
 const RECORD_STORAGE_KEY = "trip-map.region-records.v1";
 const MAP_VIEW_BOX = "45 115 720 760";
+const MIN_MAP_ZOOM = 0.75;
+const MAX_MAP_ZOOM = 2;
+const MAP_ZOOM_STEP = 0.25;
 
 const VISIT_STATUS_OPTIONS: Array<{
   value: VisitStatus;
@@ -349,6 +352,7 @@ export default function App() {
   const [regionFilter, setRegionFilter] = useState<RegionFilter>("all");
   const [regionSort, setRegionSort] = useState<RegionSort>("updated");
   const [isExportingMap, setIsExportingMap] = useState(false);
+  const [mapZoom, setMapZoom] = useState(1);
 
   const visitedRegionSet = useMemo(
     () => new Set(visitedRegionIds),
@@ -552,6 +556,13 @@ export default function App() {
     return status ? `region-status-${status}` : "";
   }
 
+  function changeMapZoom(direction: -1 | 1) {
+    setMapZoom((currentZoom) => {
+      const nextZoom = currentZoom + direction * MAP_ZOOM_STEP;
+      return Math.min(MAX_MAP_ZOOM, Math.max(MIN_MAP_ZOOM, nextZoom));
+    });
+  }
+
   async function downloadMapImage() {
     const svg = mapSvgRef.current;
     if (!svg || isExportingMap) return;
@@ -671,14 +682,22 @@ export default function App() {
           </div>
         </div>
 
-        <div className="map-canvas region-map-canvas">
-          <svg
-            className="korea-map-svg"
-            ref={mapSvgRef}
-            viewBox={MAP_VIEW_BOX}
-            role="img"
-            aria-label="대한민국 시군구 행정구역 지도"
-          >
+        <div className="map-canvas-shell">
+          <div className="map-canvas region-map-canvas">
+            <div
+              className="map-zoom-stage"
+              style={{
+                height: `${mapZoom * 100}%`,
+                width: `${mapZoom * 100}%`,
+              }}
+            >
+              <svg
+                className="korea-map-svg"
+                ref={mapSvgRef}
+                viewBox={MAP_VIEW_BOX}
+                role="img"
+                aria-label="대한민국 시군구 행정구역 지도"
+              >
             <g className="region-layer">
               {REGION_SHAPES.map((region) => {
                 const isVisitedGroup = coloredRegionSet.has(region.groupId);
@@ -738,12 +757,12 @@ export default function App() {
               })}
             </g>
 
-            <g
-              className="map-legend"
-              role="group"
-              aria-label="지도 색상 안내"
-              transform="translate(620 132)"
-            >
+                <g
+                  className="map-legend"
+                  role="group"
+                  aria-label="지도 색상 안내"
+                  transform="translate(620 132)"
+                >
               <rect
                 className="map-legend-background"
                 height="88"
@@ -789,8 +808,32 @@ export default function App() {
               <text className="map-legend-label" x="33" y="75">
                 또 가고 싶음
               </text>
-            </g>
-          </svg>
+                </g>
+              </svg>
+            </div>
+          </div>
+
+          <div className="map-zoom-controls" aria-label="지도 확대 및 축소">
+            <button
+              aria-label="지도 축소"
+              disabled={mapZoom <= MIN_MAP_ZOOM}
+              onClick={() => changeMapZoom(-1)}
+              title="지도 축소"
+              type="button"
+            >
+              −
+            </button>
+            <span aria-live="polite">{Math.round(mapZoom * 100)}%</span>
+            <button
+              aria-label="지도 확대"
+              disabled={mapZoom >= MAX_MAP_ZOOM}
+              onClick={() => changeMapZoom(1)}
+              title="지도 확대"
+              type="button"
+            >
+              +
+            </button>
+          </div>
         </div>
 
         <div className="map-hint">
