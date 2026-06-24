@@ -1,6 +1,6 @@
 import { geoCentroid, geoMercator, geoPath } from "d3-geo";
 import type { Feature, FeatureCollection, Geometry } from "geojson";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import koreaMunicipalities from "./data/skorea_municipalities_geo_simple.json";
 
@@ -337,6 +337,7 @@ function saveRegionRecords(records: Record<string, RegionRecord>) {
 }
 
 export default function App() {
+  const mapSvgRef = useRef<SVGSVGElement | null>(null);
   const [visitedRegionIds, setVisitedRegionIds] = useState<string[]>(() =>
     loadVisitedRegions(),
   );
@@ -347,6 +348,7 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState("");
   const [regionFilter, setRegionFilter] = useState<RegionFilter>("all");
   const [regionSort, setRegionSort] = useState<RegionSort>("updated");
+  const [isExportingMap, setIsExportingMap] = useState(false);
 
   const visitedRegionSet = useMemo(
     () => new Set(visitedRegionIds),
@@ -364,41 +366,50 @@ export default function App() {
   const selectedRecord = selectedRegion
     ? (regionRecords[selectedRegion.id] ?? null)
     : null;
-  const recordedRegions = useMemo(
+  const trackedRegions = useMemo(
     () =>
-      REGION_GROUPS.filter((region) => regionRecords[region.id]).sort(
-        (firstRegion, secondRegion) =>
-          regionRecords[secondRegion.id].updatedAt.localeCompare(
-            regionRecords[firstRegion.id].updatedAt,
-          ),
+      REGION_GROUPS.filter((region) => coloredRegionSet.has(region.id)).sort(
+        (firstRegion, secondRegion) => {
+          const firstUpdatedAt = regionRecords[firstRegion.id]?.updatedAt ?? "";
+          const secondUpdatedAt =
+            regionRecords[secondRegion.id]?.updatedAt ?? "";
+
+          if (firstUpdatedAt || secondUpdatedAt) {
+            return secondUpdatedAt.localeCompare(firstUpdatedAt);
+          }
+
+          return firstRegion.name.localeCompare(secondRegion.name, "ko");
+        },
       ),
-    [regionRecords],
+    [coloredRegionSet, regionRecords],
   );
   const regionStats = useMemo(() => {
     const stats = {
       colored: coloredRegionSet.size,
-      recorded: Object.keys(regionRecords).length,
+      recorded: coloredRegionSet.size,
       want: 0,
       visited: 0,
       revisit: 0,
     };
 
-    Object.values(regionRecords).forEach((record) => {
-      stats[record.status] += 1;
+    coloredRegionSet.forEach((regionId) => {
+      const status = regionRecords[regionId]?.status ?? "visited";
+      stats[status] += 1;
     });
 
     return stats;
-  }, [coloredRegionSet.size, regionRecords]);
+  }, [coloredRegionSet, regionRecords]);
   const visibleRegions = useMemo(() => {
     const normalizedSearchQuery = searchQuery.trim().toLocaleLowerCase();
 
     return REGION_GROUPS.filter((region) => {
       const record = regionRecords[region.id];
       const isColored = coloredRegionSet.has(region.id);
+      const effectiveStatus = record?.status ?? (isColored ? "visited" : null);
 
       if (regionFilter === "colored" && !isColored) return false;
       if (regionFilter === "recorded" && !record) return false;
-      if (isVisitStatus(regionFilter) && record?.status !== regionFilter)
+      if (isVisitStatus(regionFilter) && effectiveStatus !== regionFilter)
         return false;
       if (!isColored && regionFilter !== "all") return false;
 
@@ -427,7 +438,8 @@ export default function App() {
       }
 
       if (regionSort === "period") {
-        const firstPeriod = firstRecord?.startedAt || firstRecord?.endedAt || "";
+        const firstPeriod =
+          firstRecord?.startedAt || firstRecord?.endedAt || "";
         const secondPeriod =
           secondRecord?.startedAt || secondRecord?.endedAt || "";
 
@@ -440,13 +452,7 @@ export default function App() {
         firstRecord?.updatedAt ?? "",
       );
     });
-  }, [
-    coloredRegionSet,
-    regionFilter,
-    regionRecords,
-    regionSort,
-    searchQuery,
-  ]);
+  }, [coloredRegionSet, regionFilter, regionRecords, regionSort, searchQuery]);
 
   useEffect(() => {
     saveVisitedRegions(visitedRegionIds);
@@ -535,13 +541,113 @@ export default function App() {
   function getStatusLabel(status: VisitStatus | undefined) {
     return (
       VISIT_STATUS_OPTIONS.find((option) => option.value === status)?.label ??
-      "색칠됨"
+      "방문 완료"
     );
   }
 
   function getRegionStatusClass(regionId: string) {
-    const status = regionRecords[regionId]?.status;
+    const status =
+      regionRecords[regionId]?.status ??
+      (coloredRegionSet.has(regionId) ? "visited" : undefined);
     return status ? `region-status-${status}` : "";
+  }
+
+  async function downloadMapImage() {
+    const svg = mapSvgRef.current;
+    if (!svg || isExportingMap) return;
+
+    setIsExportingMap(true);
+
+    try {
+      const clonedSvg = svg.cloneNode(true) as SVGSVGElement;
+      const sourceElements = [svg, ...svg.querySelectorAll<SVGElement>("*")];
+      const clonedElements = [
+        clonedSvg,
+        ...clonedSvg.querySelectorAll<SVGElement>("*"),
+      ];
+      const styleProperties = [
+        "fill",
+        "stroke",
+        "stroke-width",
+        "stroke-linejoin",
+        "stroke-linecap",
+        "stroke-dasharray",
+        "font-family",
+        "font-size",
+        "font-weight",
+        "paint-order",
+        "text-anchor",
+      ];
+
+      sourceElements.forEach((element, index) => {
+        const clonedElement = clonedElements[index];
+        if (!clonedElement) return;
+
+        const computedStyle = window.getComputedStyle(element);
+        const inlineStyle = styleProperties
+          .map(
+            (property) =>
+              `${property}:${computedStyle.getPropertyValue(property)}`,
+          )
+          .join(";");
+
+        clonedElement.setAttribute("style", inlineStyle);
+      });
+
+      clonedSvg.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+      clonedSvg.setAttribute("width", "1440");
+      clonedSvg.setAttribute("height", "1520");
+
+      const svgMarkup = new XMLSerializer().serializeToString(clonedSvg);
+      const svgBlob = new Blob([svgMarkup], {
+        type: "image/svg+xml;charset=utf-8",
+      });
+      const imageUrl = URL.createObjectURL(svgBlob);
+      const image = new Image();
+
+      await new Promise<void>((resolve, reject) => {
+        image.onload = () => resolve();
+        image.onerror = () =>
+          reject(new Error("지도 이미지를 불러오지 못했습니다."));
+        image.src = imageUrl;
+      });
+
+      const canvas = document.createElement("canvas");
+      canvas.width = 1440;
+      canvas.height = 1520;
+      const context = canvas.getContext("2d");
+
+      if (!context) {
+        throw new Error("이미지 저장을 지원하지 않는 브라우저입니다.");
+      }
+
+      context.fillStyle = "#ffffff";
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(imageUrl);
+
+      const pngBlob = await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob((blob) => {
+          if (blob) resolve(blob);
+          else reject(new Error("PNG 파일을 생성하지 못했습니다."));
+        }, "image/png");
+      });
+      const downloadUrl = URL.createObjectURL(pngBlob);
+      const link = document.createElement("a");
+      const today = new Date().toISOString().slice(0, 10);
+
+      link.href = downloadUrl;
+      link.download = `trip-map-${today}.png`;
+      link.click();
+      URL.revokeObjectURL(downloadUrl);
+    } catch (error) {
+      console.warn("Failed to export map image", error);
+      window.alert(
+        "지도 이미지 저장에 실패했습니다. 잠시 후 다시 시도해주세요.",
+      );
+    } finally {
+      setIsExportingMap(false);
+    }
   }
 
   return (
@@ -552,12 +658,23 @@ export default function App() {
             <p className="eyebrow">Trip Map MVP</p>
             <h1>국내여행 지도</h1>
           </div>
-          <span className="marker-count">{regionStats.colored}곳 색칠</span>
+          <div className="map-header-actions">
+            <span className="marker-count">{regionStats.colored}곳 색칠</span>
+            <button
+              className="map-download-button"
+              disabled={isExportingMap}
+              onClick={downloadMapImage}
+              type="button"
+            >
+              {isExportingMap ? "저장 중..." : "이미지 저장"}
+            </button>
+          </div>
         </div>
 
         <div className="map-canvas region-map-canvas">
           <svg
             className="korea-map-svg"
+            ref={mapSvgRef}
             viewBox={MAP_VIEW_BOX}
             role="img"
             aria-label="대한민국 시군구 행정구역 지도"
@@ -841,51 +958,51 @@ export default function App() {
           </div>
 
           <div className="marker-list">
-          {visibleRegions.length === 0 ? (
-            <div className="empty-state">
-              <strong>조건에 맞는 지역이 없어요.</strong>
-              <p>
-                지도에서 지역을 선택해 기록을 남기거나 검색 조건을 바꿔보세요.
-              </p>
-            </div>
-          ) : (
-            visibleRegions.map((region) => {
-              const record = regionRecords[region.id];
+            {visibleRegions.length === 0 ? (
+              <div className="empty-state">
+                <strong>조건에 맞는 지역이 없어요.</strong>
+                <p>
+                  지도에서 지역을 선택해 기록을 남기거나 검색 조건을 바꿔보세요.
+                </p>
+              </div>
+            ) : (
+              visibleRegions.map((region) => {
+                const record = regionRecords[region.id];
 
-              return (
-                <button
-                  className={`marker-card ${region.id === selectedRegionId ? "marker-card-active" : ""}`}
-                  key={region.id}
-                  onClick={() => setSelectedRegionId(region.id)}
-                >
-                  <span>
-                    <strong>{region.name}</strong>
-                    <small>
-                      {getTravelPeriodText(record, region.englishName)}
-                    </small>
-                  </span>
-                  <span className="record-card-meta">
-                    <em
-                      className={`status-badge status-badge-${record?.status ?? "plain"}`}
-                    >
-                      {getStatusLabel(record?.status)}
-                    </em>
-                    <code>{record?.title || record?.memo || "색칠됨"}</code>
-                  </span>
-                </button>
-              );
-            })
-          )}
+                return (
+                  <button
+                    className={`marker-card ${region.id === selectedRegionId ? "marker-card-active" : ""}`}
+                    key={region.id}
+                    onClick={() => setSelectedRegionId(region.id)}
+                  >
+                    <span>
+                      <strong>{region.name}</strong>
+                      <small>
+                        {getTravelPeriodText(record, region.englishName)}
+                      </small>
+                    </span>
+                    <span className="record-card-meta">
+                      <em
+                        className={`status-badge status-badge-${record?.status ?? "plain"}`}
+                      >
+                        {getStatusLabel(record?.status)}
+                      </em>
+                      <code>{record?.title || record?.memo || "색칠됨"}</code>
+                    </span>
+                  </button>
+                );
+              })
+            )}
           </div>
         </section>
 
-        {recordedRegions.length > 0 && (
+        {trackedRegions.length > 0 && (
           <div className="record-summary">
             <p className="selected-label">
-              기록된 지역 {recordedRegions.length}곳
+              기록된 지역 {trackedRegions.length}곳
             </p>
             <div className="record-chip-list">
-              {recordedRegions.map((region) => (
+              {trackedRegions.map((region) => (
                 <button
                   className="record-chip"
                   key={`${region.id}-record-chip`}

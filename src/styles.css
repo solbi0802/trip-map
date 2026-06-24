@@ -87,6 +87,34 @@ h2 {
   font-weight: 800;
 }
 
+.map-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.map-download-button {
+  min-height: 34px;
+  border: 1px solid rgba(15, 118, 110, 0.24);
+  border-radius: 8px;
+  padding: 0 11px;
+  color: #0f5f59;
+  background: #edf7f3;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.map-download-button:hover {
+  border-color: #0f766e;
+  background: #dff2eb;
+}
+
+.map-download-button:disabled {
+  color: #82928a;
+  cursor: wait;
+}
+
 .map-canvas {
   flex: 1;
   min-height: calc(100vh - 40px);
@@ -598,6 +626,11 @@ h2 {
   .map-header {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .map-header-actions {
+    width: 100%;
+    justify-content: space-between;
   }
 
   .panel-header,
