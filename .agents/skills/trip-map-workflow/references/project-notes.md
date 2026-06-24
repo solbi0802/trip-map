@@ -47,3 +47,4 @@ pnpm preview
 - Inline computed SVG presentation styles before serialization.
 - Use a white background and a deterministic dated filename.
 - Keep exported map colors consistent with visit status colors.
+- Keep the status legend inside the SVG so the on-screen map and exported PNG include the same explanation.

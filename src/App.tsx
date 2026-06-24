@@ -737,12 +737,65 @@ export default function App() {
                 );
               })}
             </g>
+
+            <g
+              className="map-legend"
+              role="group"
+              aria-label="지도 색상 안내"
+              transform="translate(620 132)"
+            >
+              <rect
+                className="map-legend-background"
+                height="88"
+                rx="4"
+                width="132"
+              />
+              <text className="map-legend-title" x="10" y="17">
+                색상 안내
+              </text>
+
+              <rect
+                className="map-legend-swatch map-legend-swatch-visited"
+                height="9"
+                rx="1"
+                width="15"
+                x="10"
+                y="27"
+              />
+              <text className="map-legend-label" x="33" y="35">
+                방문한 곳
+              </text>
+
+              <rect
+                className="map-legend-swatch map-legend-swatch-want"
+                height="9"
+                rx="1"
+                width="15"
+                x="10"
+                y="47"
+              />
+              <text className="map-legend-label" x="33" y="55">
+                가고 싶음
+              </text>
+
+              <rect
+                className="map-legend-swatch map-legend-swatch-revisit"
+                height="9"
+                rx="1"
+                width="15"
+                x="10"
+                y="67"
+              />
+              <text className="map-legend-label" x="33" y="75">
+                또 가고 싶음
+              </text>
+            </g>
           </svg>
         </div>
 
         <div className="map-hint">
-          실제 시군구 경계 기반 지도입니다. 지역 이름이나 구역을 클릭하면
-          파란색으로 칠해집니다.
+          실제 시군구 경계 기반 지도입니다. 지역을 선택하고 방문 상태에 따라
+          색칠해보세요.
         </div>
       </section>
 
