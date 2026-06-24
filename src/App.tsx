@@ -126,9 +126,7 @@ function getShortName(name: string) {
     .replace(/특별자치시$/u, "")
     .replace(/광역시$/u, "")
     .replace(/특별시$/u, "")
-    .replace(/시$/u, "")
-    .replace(/군$/u, "")
-    .replace(/구$/u, "");
+    .replace(/[시군구]$/u, "");
 }
 
 function getDisplayName(feature: RegionFeature) {
